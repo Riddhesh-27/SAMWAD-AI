@@ -1,0 +1,76 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+backend/.venv/
+.venv/
+venv/
+env/
+ENV/
+
+# ── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+.npm
+*.tsbuildinfo
+
+# ── ML Models (large binary files — add via Git LFS or ignore) ──────────────
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.h5
+*.pkl
+*.bin
+# Uncomment below to track models with Git LFS instead:
+# !backend/app/models/*.pt
+
+# ── Logs & Temp ──────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+logs/
+temp/
+tmp/
+
+# ── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Testing / Coverage ───────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.xml
+
+# ── Docs artifacts ───────────────────────────────────────────────────────────
+docs/__pycache__/

@@ -1,0 +1,770 @@
+================================================================================
+   SAMVAD AI — PROJECT TECHNOLOGY EXPLANATION
+   Smart AI-based Multimodal Vision Assistant for Deaf and Speech-Impaired
+   Communication
+================================================================================
+   Version : 1.0.0
+   Created : October 2026
+   Purpose : Comprehensive reference explaining every language, library, API,
+             and technology used in the SAMVAD AI project and the reason why
+             each was chosen.
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+   TABLE OF CONTENTS
+════════════════════════════════════════════════════════════════════════════════
+   1.  Project Overview
+   2.  Architecture Overview
+   3.  Programming Languages
+   4.  Backend Technologies
+   5.  Frontend Technologies
+   6.  AI / ML Pipeline
+   7.  Computer Vision
+   8.  Grammar & NLP Engine
+   9.  Text-to-Speech (TTS)
+   10. Data & Model Training
+   11. Build & Dev Tools
+   12. Project File Structure
+   13. How All Components Work Together
+   14. Known Limitations & Future Work
+════════════════════════════════════════════════════════════════════════════════
+
+
+────────────────────────────────────────────────────────────────────────────────
+   1. PROJECT OVERVIEW
+────────────────────────────────────────────────────────────────────────────────
+
+SAMVAD AI is a real-time, AI-powered assistive communication tool designed to
+help deaf and speech-impaired individuals communicate with hearing people. It
+works by:
+
+  • Capturing live webcam video frames in the browser
+  • Sending frames to a Python backend for AI-driven hand landmark detection
+  • Classifying detected hand gestures as either:
+      a) Conversational signs (HELLO, THUMBS UP, OKAY, PEACE, etc.) using a
+         geometric rule-based analyzer
+      b) ASL alphabet signs (A–Z) using a trained deep neural network
+  • Accumulating recognized signs into a sentence buffer
+  • Refining the sign-language gloss into natural English using a rule-based
+    grammar engine (100% offline)
+  • Speaking the refined sentence aloud using the browser's Web Speech API
+
+The prototype runs entirely on a standard laptop with no GPU requirement, no
+cloud API dependency, and no internet requirement after first launch.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   2. ARCHITECTURE OVERVIEW
+────────────────────────────────────────────────────────────────────────────────
+
+┌────────────────────────────────────────────────────────────────────┐
+│                          USER BROWSER                              │
+│  ┌──────────────┐  Base64   ┌──────────────────────────────────┐  │
+│  │  Webcam Feed │──JPEG────▶│    React + Vite Frontend (5173)  │  │
+│  └──────────────┘           │  • WebcamView  (video + canvas)  │  │
+│                             │  • SentenceBuilder               │  │
+│                             │  • GrammarPanel                  │  │
+│                             │  • SpeechPanel (Web Speech API)  │  │
+│                             └────────────────┬─────────────────┘  │
+└──────────────────────────────────────────────│────────────────────┘
+                                               │ HTTP POST /api/recognize/frame
+                                               ▼
+┌────────────────────────────────────────────────────────────────────┐
+│              FastAPI Backend (Python 3.x, port 8000)               │
+│                                                                    │
+│  ┌──────────────────┐   ┌──────────────────┐   ┌───────────────┐  │
+│  │ HandLandmarker   │   │ Gesture Analyzer  │   │ DNN Classifier│  │
+│  │ (MediaPipe Tasks)│──▶│ (Rule-Based, 9   │──▶│ (PyTorch +    │  │
+│  │ 21 keypoints     │   │  gestures)        │   │ Scikit-Learn) │  │
+│  └──────────────────┘   └──────────────────┘   └───────────────┘  │
+│                                     │                              │
+│                          ┌──────────▼────────┐                    │
+│                          │ PredictionStabilizer                   │
+│                          │ (Temporal denoiser)│                   │
+│                          └──────────┬─────────┘                   │
+│                                     │                              │
+│  ┌──────────────────────────────────▼──────────────────────────┐  │
+│  │   Grammar Refinement Engine (GrammarRefiner, offline)        │  │
+│  │   Rule-based ISL/ASL gloss → Natural English conversion      │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────
+   3. PROGRAMMING LANGUAGES
+────────────────────────────────────────────────────────────────────────────────
+
+   ┌────────────┬───────────────────────────────────────────────────────────┐
+   │ Language   │ Why It Was Used                                           │
+   ├────────────┼───────────────────────────────────────────────────────────┤
+   │ Python 3.x │ The de-facto language for AI/ML and computer vision.      │
+   │            │ Has first-class support for MediaPipe, PyTorch,           │
+   │            │ OpenCV, and scientific computing libraries.               │
+   │            │ Used for: backend API, ML inference, landmark extraction, │
+   │            │ grammar engine, model training scripts.                   │
+   ├────────────┼───────────────────────────────────────────────────────────┤
+   │ JavaScript │ The native language of the web browser. Used for the      │
+   │ (ES2022+)  │ entire React frontend. Handles webcam capture, canvas     │
+   │            │ drawing, API calls, and TTS.                             │
+   ├────────────┼───────────────────────────────────────────────────────────┤
+   │ HTML5      │ The structural markup for the web interface. Used for     │
+   │            │ the video element (webcam), canvas overlay (hand          │
+   │            │ skeleton drawing), and semantic page structure.           │
+   ├────────────┼───────────────────────────────────────────────────────────┤
+   │ CSS3       │ Vanilla CSS with CSS custom properties (CSS variables)    │
+   │            │ for the dark-mode design system, glassmorphism effects,   │
+   │            │ micro-animations, and responsive layout.                  │
+   └────────────┴───────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────
+   4. BACKEND TECHNOLOGIES
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  FastAPI  (Python library, version ~0.115)                             ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     FastAPI is a modern, asynchronous Python web framework designed for
+     building high-performance REST APIs with automatic data validation via
+     Pydantic and auto-generated Swagger documentation.
+
+   WHY WE CHOSE IT:
+     • Async I/O: Handles multiple simultaneous webcam-frame requests from
+       multiple browser tabs without blocking.
+     • Pydantic integration: Automatic request body validation (e.g., ensures
+       the base64 image field is never empty).
+     • Speed: Among the fastest Python web frameworks — important since
+       MediaPipe inference happens per-request.
+     • Auto-docs: /docs endpoint gives instant API exploration without extra
+       tools, helpful for development and QA.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Uvicorn  (ASGI server)                                               ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     The production-grade ASGI (Asynchronous Server Gateway Interface) server
+     that runs FastAPI. Replaces the older WSGI servers (like Gunicorn) for
+     async applications.
+
+   WHY WE CHOSE IT:
+     • FastAPI natively runs on Uvicorn.
+     • Extremely low overhead per request.
+     • Supports hot-reload (--reload flag) during development.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Pydantic  (data validation library)                                  ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     Python library for data validation and settings management using Python
+     type hints. FastAPI uses Pydantic models to parse and validate all API
+     request bodies automatically.
+
+   WHY WE CHOSE IT:
+     • Ensures the incoming base64 image string is non-empty.
+     • Validates the confidence threshold is a float between 0.0 and 1.0.
+     • Raises clear HTTP 422 errors when malformed data is sent.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Python Virtual Environment (.venv)                                   ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHY WE USE IT:
+     Isolates all Python packages (MediaPipe, PyTorch, OpenCV, etc.) from
+     the system Python to avoid version conflicts and ensure reproducibility.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   5. FRONTEND TECHNOLOGIES
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  React 18  (UI framework)                                             ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A declarative JavaScript library for building component-based user
+     interfaces. Developed by Meta (Facebook). Uses a virtual DOM for
+     efficient, reactive UI updates.
+
+   WHY WE CHOSE IT:
+     • Component architecture: Each panel (Webcam, Grammar, Speech,
+       SentenceBuilder) is a self-contained, reusable component.
+     • Hooks: React hooks (useState, useEffect, useRef, useCallback) enable
+       elegant management of real-time state like FPS counter, live sign
+       display, stability score, and camera stream.
+     • Vast ecosystem: Libraries like Lucide React (icons) integrate naturally.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Vite  (build tool and dev server)                                    ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A next-generation frontend build tool that uses native ES Modules for
+     extremely fast hot-module replacement (HMR) during development and
+     Rollup for optimized production builds.
+
+   WHY WE CHOSE IT:
+     • Instantaneous hot reloads: Editing a component updates the browser
+       in milliseconds, not seconds.
+     • Proxy support: Vite's proxy config forwards `/api/*` requests from port
+       5173 to the FastAPI backend on port 8000, bypassing CORS issues in dev.
+     • Modern defaults: ES2022+ JS, React JSX, CSS Modules are all supported
+       out of the box without complex Webpack configuration.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Lucide React  (icon library)                                         ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A collection of beautifully crafted SVG icons as React components.
+     Fork of Feather Icons with 1000+ icons.
+
+   WHY WE CHOSE IT:
+     • Zero-cost SVG rendering (no font download required).
+     • Perfectly consistent icon style across the entire UI.
+     • Easily customizable size and color via props.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  CSS Custom Properties (CSS Variables)                                ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHY WE USE THEM:
+     Design tokens like --primary, --accent, --bg-main, --text-muted etc.
+     are defined once in :root and used everywhere. This allows instant
+     theming changes and avoids hard-coded hex values scattered across files.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Google Fonts (Inter, JetBrains Mono)                                 ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHY WE USE THEM:
+     • Inter: A modern, highly legible sans-serif designed for screens.
+       Used for all body text and labels.
+     • JetBrains Mono: A monospace font with excellent legibility for code,
+       sign names, confidence values, and landmark data display.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   6. AI / ML PIPELINE
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  PyTorch  (deep learning framework)                                   ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     An open-source deep learning framework developed by Meta AI. It provides
+     flexible neural network construction via nn.Module and GPU/CPU tensor
+     operations.
+
+   WHY WE CHOSE IT:
+     • Dynamic computation graph: Easier to debug and modify than TensorFlow.
+     • Lightweight inference: Our model is a 4-layer MLP (Multi-Layer
+       Perceptron); running it in CPU mode with PyTorch adds only ~2ms per
+       inference.
+     • Standard format: The model is saved as a .pt checkpoint file, which
+       is the standard PyTorch format for deployment.
+     • Industry standard: Most academic sign language research uses PyTorch,
+       making it easier to adopt future pre-trained models.
+
+   OUR NEURAL NETWORK ARCHITECTURE (KeypointClassifierPyTorch):
+     Input:  42 floats  (21 hand landmarks × 2 coordinates [x, y])
+             Normalized relative to wrist position and maximum hand extent.
+     ┌─────────────────────────────────────────────────────────────────┐
+     │  Linear(42 → 128)  →  BatchNorm1d  →  ReLU  →  Dropout(0.2)  │
+     │  Linear(128 → 64)  →  BatchNorm1d  →  ReLU  →  Dropout(0.2)  │
+     │  Linear(64 → 32)   →  ReLU                                     │
+     │  Linear(32 → 26)   →  (logits, no activation)                  │
+     └─────────────────────────────────────────────────────────────────┘
+     Output: Softmax probabilities over 26 classes (ASL alphabet A–Z).
+     Confidence threshold: 0.60 (configurable by the user via UI slider).
+
+   TRAINING DETAILS:
+     • Dataset: ASL alphabet hand landmark data (21-point MediaPipe keypoints)
+       from multiple open-source ASL datasets on GitHub, supplemented with
+       additional samples for visually ambiguous letters.
+     • Preprocessing: All landmarks normalized to wrist origin and scaled by
+       max absolute coordinate value → scale and position invariant.
+     • Loss: CrossEntropyLoss
+     • Optimizer: Adam (learning rate 1e-3)
+     • Regularization: Dropout (p=0.2) + BatchNormalization
+     • Test accuracy achieved: ~90.3%
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Scikit-learn  (ML library, fallback classifier)                      ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A classical machine learning library for Python. Provides Random Forest,
+     SVM, Logistic Regression, and 100+ other algorithms. Also includes
+     comprehensive data preprocessing utilities.
+
+   WHY WE USE IT (as a fallback):
+     • If the PyTorch model fails to load for any reason (e.g., wrong Python
+       version), a Scikit-learn Random Forest trained on the same data acts
+       as a fallback classifier.
+     • Scikit-learn models are serialized with joblib (.joblib) which is
+       extremely portable and loads without GPU dependencies.
+     • The sklearn model achieves ~88% test accuracy — slightly below PyTorch
+       but acceptable for a fallback.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  NumPy  (numerical computing)                                         ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     The fundamental package for numerical computing in Python. Provides fast
+     multi-dimensional array operations backed by optimized C extensions.
+
+   WHY WE USE IT:
+     • All landmark coordinates are stored as NumPy float32 arrays before
+       being fed into PyTorch tensors.
+     • NumPy's argmax/argsort are used to find the top-3 most likely sign
+       predictions from softmax output.
+     • Feature normalization (translate to wrist origin, scale by max value)
+       is vectorized with NumPy for speed.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Joblib  (model serialization)                                        ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A Python library that provides tools for efficient disk caching of Python
+     objects, especially large NumPy arrays and scikit-learn models.
+
+   WHY WE USE IT:
+     • The scikit-learn fallback classifier is saved and loaded as a .joblib
+       file, which is faster and more memory-efficient than pickle for
+       NumPy-heavy objects.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   7. COMPUTER VISION
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Google MediaPipe Tasks  (hand landmark detection)                    ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     MediaPipe is Google's open-source, cross-platform ML framework for
+     real-time perception tasks (hand tracking, face detection, pose
+     estimation). The "Tasks" API (post-2022) is the modern, production-ready
+     replacement for the legacy MediaPipe Hands solution.
+
+   THE MODEL FILE USED:
+     hand_landmarker.task (~7.8 MB TFLite bundle)
+     Contains a TensorFlow Lite model that detects 21 3D keypoints on any
+     human hand in a single image. Downloaded from:
+     https://storage.googleapis.com/mediapipe-models/hand_landmarker/
+            hand_landmarker/float16/latest/hand_landmarker.task
+
+   WHY WE CHOSE IT:
+     • Accuracy: 21 precise 3D keypoints per hand with sub-pixel precision.
+     • Speed: ~8-15ms per frame on CPU — fast enough for real-time inference.
+     • Robustness: Works across skin tones, lighting conditions, and camera
+       distances thanks to Google's large training dataset.
+     • Offline-first: The .task bundle runs entirely on-device — no internet
+       required at inference time.
+     • Python API: Official MediaPipe Tasks Python API integrates cleanly into
+       our FastAPI pipeline.
+
+   THE 21 KEYPOINTS:
+     MediaPipe assigns indices 0–20 to specific hand joints:
+       0  = Wrist
+       1–4  = Thumb (CMC, MCP, IP, TIP)
+       5–8  = Index finger (MCP, PIP, DIP, TIP)
+       9–12 = Middle finger (MCP, PIP, DIP, TIP)
+       13–16 = Ring finger (MCP, PIP, DIP, TIP)
+       17–20 = Pinky finger (MCP, PIP, DIP, TIP)
+
+   NORMALIZATION PROCESS:
+     The raw (x, y) coordinates returned by MediaPipe are in [0, 1] space
+     relative to the image dimensions. Before classification, we:
+       Step 1: Subtract wrist (point 0) coordinates → translate to origin.
+       Step 2: Divide all values by the maximum absolute coordinate value.
+     This makes the feature vector invariant to hand position, hand size,
+     and camera distance — critical for a generalizable classifier.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  OpenCV (cv2)  (image processing)                                     ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     Open Source Computer Vision Library — the world's most widely used
+     computer vision library, implemented in C++ with Python bindings.
+
+   WHY WE USE IT:
+     • Decodes the base64 JPEG image received from the browser into a BGR
+       numpy array that MediaPipe can process.
+     • Converts BGR → RGB (MediaPipe requires RGB input).
+     • Provides the imdecode() function for robust image decoding.
+     • Used in the training pipeline for any image pre-processing tasks.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  HTML5 Canvas API  (landmark overlay drawing)                         ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     The browser's built-in 2D graphics API for drawing shapes, text, and
+     images directly onto a <canvas> HTML element.
+
+   WHY WE USE IT:
+     • An invisible canvas is layered on top of the webcam video element.
+     • When MediaPipe detects a hand, the backend returns the 21 landmark
+       coordinates, and the frontend draws:
+           - Colored dots at each joint
+           - Skeleton lines connecting the joints (using HAND_CONNECTIONS)
+           - A dashed bounding box around the hand
+           - A label pill (sign name + confidence %) above the box
+     • This gives the user visual confirmation that their hand is detected
+       and classified correctly, improving the interaction experience.
+     • An offscreen canvas is also used to capture a 320×240 frame from the
+       video element and encode it as base64 JPEG before sending to the API.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   8. GRAMMAR & NLP ENGINE
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Custom GrammarRefiner  (100% offline rule-based engine)              ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A Python class implemented from scratch using the built-in `re` (regex)
+     module. No external NLP libraries (spaCy, NLTK, OpenAI) are used.
+
+   WHY WE BUILT IT INSTEAD OF USING AN EXISTING NLP LIBRARY:
+     • Sign language gloss is fundamentally different from English text —
+       it often omits articles ("a", "the"), auxiliary verbs ("am", "is"),
+       and has a different word order (Object-Verb instead of Subject-Verb-Object).
+     • General NLP libraries like spaCy are not designed to convert sign
+       language glosses into natural English — they would make incorrect
+       corrections.
+     • 100% offline: Deaf users may not have internet access in many
+       environments (hospitals, public transport). Our grammar engine works
+       without any network connection.
+     • Deterministic: The same input always produces the same output, making
+       the system predictable and easy to test.
+     • Extensible: New sign patterns can be added in minutes by adding a
+       tuple to the gloss_patterns list.
+
+   HOW IT WORKS:
+     Step 1: Normalize spacing (collapse multiple spaces to one).
+     Step 2: Merge fingerspelled letters — "H E L L O" → "HELLO".
+             (Useful when individual letters are spelled out).
+     Step 3: Match multi-word ISL/ASL gloss patterns using regex.
+             Patterns are ordered from most specific to most general.
+             Examples of pattern transformations:
+               "THUMBS UP"         → "Well done! Excellent work."
+               "HELLO"             → "Hello! Greetings."
+               "YOU NAME WHAT"     → "What is your name?"
+               "I WATER WANT"      → "I would like some water, please."
+               "ME HUNGRY"         → "I am hungry."
+               "PLEASE HELP"       → "Please help me."
+               "WELL DONE"         → "Well done! Excellent work."
+               "I LOVE YOU"        → "I love you very much."
+               "THANK YOU"         → "Thank you very much."
+     Step 4: General corrections if no pattern matched:
+               - Replace "ME" with "I" at subject position
+               - Insert missing copula "am" ("I TIRED" → "I am tired")
+               - Invert WH-questions ("NAME WHAT" → "What is name?")
+     Step 5: Capitalization + terminal punctuation (. or ?) if missing.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Python `re` module  (regular expressions)                            ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     Python's built-in regular expression library. Provides functions like
+     re.search(), re.sub(), re.match() using POSIX-style regex syntax.
+
+   WHY WE USE IT:
+     • Regex patterns handle word-boundary matching (\b) to avoid partial
+       replacements (e.g., "HELLO" pattern does not match "HELLO-WORLD").
+     • Case-insensitive matching (re.IGNORECASE) handles mixed-case inputs.
+     • More powerful than simple string replace for gloss pattern matching.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   9. TEXT-TO-SPEECH (TTS)
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Web Speech API — SpeechSynthesis  (browser-native TTS)               ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A built-in browser API (standardized by W3C) that allows JavaScript to
+     synthesize speech from text using the operating system's voice engines.
+     No library or API key needed.
+
+   WHY WE CHOSE IT:
+     • Zero dependencies: Works in any modern browser (Chrome, Edge, Firefox,
+       Safari) on desktop and mobile without installing anything.
+     • Offline-capable: Uses OS-installed voices (Windows Speech Platform,
+       macOS's built-in voices, Android's TTS engine).
+     • Language support: Includes Hindi and English voices on most systems.
+     • Immediate availability: No audio file download or server round-trip —
+       speech starts within milliseconds.
+     • Customizable: Rate (speed), pitch, and voice can all be configured.
+
+   OUR IMPLEMENTATION (frontend/src/services/speech.js):
+     • Auto-selects the best available English (en-IN or en-US) voice.
+     • Limits utterance to 500 characters to prevent browser TTS hang.
+     • Provides speak(), stop(), and pauseResume() methods.
+     • Handles browser quirks (Chrome requires user interaction before TTS,
+       and voices load asynchronously on Chrome).
+
+   SUPPORTED VOICES PRIORITY:
+     en-IN (Indian English) → en-US (American English) → first available
+
+   LANGUAGES SUPPORTED FOR SIGN INPUT:
+     Currently English ASL/ISL signs → English output.
+     Hindi output text-to-speech is on the roadmap.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   10. DATA & MODEL TRAINING
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Training Data — ASL Alphabet Hand Landmark Dataset                   ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   SOURCE:
+     The model was trained on normalized 42-dimensional hand landmark vectors
+     derived from multiple open-source ASL fingerspelling datasets. Multiple
+     contributors' recordings were combined and processed with MediaPipe to
+     produce consistent keypoint sequences.
+
+   FORMAT:
+     CSV file: label, x0, y0, x1, y1, ... x20, y20
+     (26 ASL letter classes × ~4,000 samples each = ~100,000+ training rows)
+
+   NORMALIZATION:
+     Applied during training to match the exact preprocessing applied during
+     inference (wrist-relative + max-absolute-value scaling).
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  train_model.py  (training script)                                    ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   HOW TO RETRAIN:
+     python train_model.py
+
+   WHAT IT DOES:
+     • Reads dataset/keypoints.csv (and custom_signs.csv if present)
+     • Splits into 80% train / 20% test
+     • Trains PyTorch MLP for 100 epochs
+     • Trains Scikit-learn Random Forest as fallback
+     • Saves keypoint_classifier.pt and keypoint_classifier.joblib
+     • Saves model_metadata.json with accuracy, class list, training params
+     • Produces a confusion matrix PNG for QA
+
+   CUSTOM SIGN RECORDING:
+     The "Sign Studio" panel in the UI allows recording custom hand signs.
+     Each recorded sample is appended to dataset/custom_signs.csv.
+     Re-running train_model.py then incorporates the new signs into the model.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   11. BUILD & DEV TOOLS
+────────────────────────────────────────────────────────────────────────────────
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  Node.js + npm  (JavaScript runtime and package manager)              ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT THEY ARE:
+     Node.js is a server-side JavaScript runtime. npm (Node Package Manager)
+     is its package management ecosystem.
+
+   WHY WE NEED THEM:
+     Only used for frontend tooling (Vite, React, Lucide). The production app
+     is a static web page that does not require Node at runtime.
+     Packages installed: react, react-dom, vite, lucide-react.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  capacitor.config.json  (Capacitor — mobile packaging)               ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     Capacitor (by Ionic) is a cross-platform native runtime that wraps web
+     apps into native Android/iOS apps using a WebView.
+
+   WHY WE INCLUDE IT:
+     SAMVAD AI is designed to be deployable as an Android APK (the original
+     spec requested Android compatibility). The Capacitor config points to the
+     Vite build output, allowing `npx cap sync android` to create an Android
+     Studio project that can be compiled to an APK.
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  start_samvad.ps1  (PowerShell startup script)                        ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     A Windows PowerShell script that starts both the backend and frontend
+     with a single command, so users don't need to open two terminal windows.
+
+   HOW TO USE:
+     Right-click → "Run with PowerShell"  OR  powershell -File start_samvad.ps1
+
+   ╔══════════════════════════════════════════════════════════════════════════╗
+   ║  pytest  (Python testing framework)                                   ║
+   ╚══════════════════════════════════════════════════════════════════════════╝
+   WHAT IT IS:
+     The most popular Python testing framework. Discovers and runs test
+     functions in files matching test_*.py or *_test.py patterns.
+
+   HOW WE USE IT:
+     Unit tests for the grammar engine and classifier are in the /tests folder.
+     Run: python -m pytest tests/ -v
+
+
+────────────────────────────────────────────────────────────────────────────────
+   12. PROJECT FILE STRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+   SAMWAD AI/
+   ├── backend/                  ← FastAPI Python backend
+   │   ├── .venv/                ← Isolated Python virtual environment
+   │   ├── requirements.txt      ← All Python dependencies
+   │   └── app/
+   │       ├── main.py           ← FastAPI app entry, CORS, router registry
+   │       ├── models/
+   │       │   ├── hand_landmarker.task  ← MediaPipe TFLite model bundle
+   │       │   ├── keypoint_classifier.pt ← Trained PyTorch DNN weights
+   │       │   ├── keypoint_classifier.joblib ← Scikit-learn fallback
+   │       │   ├── keypoint_labels.json  ← Class names (A–Z)
+   │       │   └── model_metadata.json   ← Training metadata & metrics
+   │       ├── routes/
+   │       │   ├── recognition.py  ← /api/recognize/frame, /classes
+   │       │   ├── grammar.py      ← /api/grammar/refine
+   │       │   └── health.py       ← /api/health
+   │       └── services/
+   │           ├── landmark_extractor.py ← MediaPipe HandLandmarker wrapper
+   │           ├── classifier.py         ← PyTorch + sklearn inference
+   │           ├── gesture_analyzer.py   ← Rule-based conversational signs
+   │           ├── grammar_service.py    ← ISL/ASL → English grammar engine
+   │           └── stabilizer.py        ← Temporal prediction denoiser
+   │
+   ├── frontend/                 ← React + Vite web frontend
+   │   ├── public/               ← Static assets (icons, manifest.json)
+   │   ├── index.html            ← HTML shell with Google Fonts links
+   │   ├── vite.config.js        ← Vite config with /api proxy
+   │   ├── package.json          ← Frontend dependencies
+   │   └── src/
+   │       ├── main.jsx          ← React entry point
+   │       ├── App.jsx           ← Main layout, state, panel orchestration
+   │       ├── index.css         ← Global design system (CSS variables)
+   │       ├── App.css           ← App-level animation styles
+   │       ├── components/
+   │       │   ├── WebcamView.jsx       ← Camera feed, canvas overlay, FPS
+   │       │   ├── SentenceBuilder.jsx  ← Sign accumulation, word display
+   │       │   ├── GrammarPanel.jsx     ← Grammar refinement UI
+   │       │   ├── SpeechPanel.jsx      ← TTS controls and voice settings
+   │       │   ├── Header.jsx           ← App header with status indicators
+   │       │   ├── SupportedSignsModal.jsx ← Full sign reference chart
+   │       │   ├── SignStudioModal.jsx  ← Custom sign recording UI
+   │       │   └── AndroidReadinessModal.jsx ← Android APK guide
+   │       └── services/
+   │           ├── api.js        ← HTTP client + offline grammar fallback
+   │           └── speech.js     ← Web Speech API wrapper
+   │
+   ├── dataset/                  ← Training data
+   │   ├── keypoints.csv         ← Main landmark dataset (A–Z)
+   │   └── custom_signs.csv      ← User-recorded custom signs (appended live)
+   │
+   ├── docs/
+   │   └── PROJECT_TECH_EXPLANATION.txt ← This file
+   │
+   ├── tests/                    ← Python unit tests (pytest)
+   ├── train_model.py            ← Model training + evaluation script
+   ├── start_samvad.ps1          ← One-click Windows startup script
+   └── README.md                 ← Quick start and usage guide
+
+
+────────────────────────────────────────────────────────────────────────────────
+   13. HOW ALL COMPONENTS WORK TOGETHER — END-TO-END FLOW
+────────────────────────────────────────────────────────────────────────────────
+
+   STEP 1: CAMERA CAPTURE
+     The user opens http://localhost:5173 in their browser.
+     They click "Start Camera" → the browser requests webcam permission.
+     Every 160ms, an offscreen canvas captures a 320×240 JPEG snapshot
+     from the live video element and encodes it as a base64 string.
+
+   STEP 2: FRAME SUBMISSION
+     The frontend calls POST /api/recognize/frame with the base64 JPEG
+     and the user's confidence threshold (default 60%).
+
+   STEP 3: LANDMARK EXTRACTION (BACKEND)
+     HandLandmarkExtractor.extract_landmarks() is called:
+       a) Decodes base64 → OpenCV BGR image
+       b) Converts BGR → RGB
+       c) Runs MediaPipe HandLandmarker → detects 21 keypoints + handedness
+       d) Normalizes keypoints (wrist origin, max-scale) → 42-float vector
+       e) Computes bounding box coordinates
+
+   STEP 4: SIGN CLASSIFICATION (BACKEND)
+     First attempts conversational gesture detection:
+       - analyze_conversational_gesture() uses distance ratios and angular
+         checks to detect: THUMBS UP, THUMBS DOWN, HELLO, PEACE, OKAY,
+         I LOVE YOU, CALL ME, POINTING, FIST/STOP.
+       - If a conversational sign is detected with confidence ≥ threshold,
+         it is returned immediately (no ML model needed).
+     Otherwise, falls back to ML:
+       - PyTorch KeypointClassifierPyTorch.predict() runs the 4-layer MLP
+         on the 42-float feature vector.
+       - Returns top-3 candidates with softmax confidence scores.
+       - If top confidence ≥ threshold → sign is "accepted".
+
+   STEP 5: TEMPORAL STABILIZATION (BACKEND)
+     PredictionStabilizer.add_prediction() ingests the prediction:
+       - Maintains a 6-frame sliding window of predictions.
+       - The most frequent sign across the window becomes the "stabilized sign".
+       - Stability score = (count of most common sign) / window_size.
+       - If stability ≥ 65% AND cooldown timer has elapsed → "ready_to_append"
+       - Cooldown = 1.2 seconds (prevents the same word from spamming).
+
+   STEP 6: AUTO-APPEND TO SENTENCE (FRONTEND)
+     The JSON response contains stabilizer.ready_to_append = true/false.
+     If true, and if "Auto-Append" is enabled, the sign word is added to the
+     sentence buffer in SentenceBuilder component.
+
+   STEP 7: GRAMMAR REFINEMENT (OPTIONAL)
+     User clicks "Refine Grammar" OR if Auto-Refine is toggled ON,
+     the sentence is sent to POST /api/grammar/refine after a 1.8s debounce.
+     GrammarRefiner.refine_offline() applies the rule-based gloss→English
+     transformation and returns the refined sentence + rules applied.
+
+   STEP 8: TEXT-TO-SPEECH (OPTIONAL)
+     User clicks "Speak" on the SpeechPanel or Grammar refinement result.
+     speechService.speak(text) calls window.speechSynthesis.speak()
+     with the selected voice (en-IN preferred, en-US fallback).
+     The text is spoken aloud by the computer's TTS engine.
+
+   LANDMARK VISUALIZATION (PARALLEL):
+     While inference runs, the returned landmark coordinates and bbox are
+     drawn on the HTML5 canvas overlay in the WebcamView component — giving
+     the user a real-time visual of the skeleton detected on their hand.
+
+
+────────────────────────────────────────────────────────────────────────────────
+   14. KNOWN LIMITATIONS & FUTURE WORK
+────────────────────────────────────────────────────────────────────────────────
+
+   CURRENT LIMITATIONS:
+     ⚠ The ML model classifies ASL (American Sign Language) alphabet A–Z.
+       True ISL (Indian Sign Language) uses a different hand alphabet system.
+       ISL conversational gestures (HELLO, THUMBS UP, etc.) are detected via
+       geometric rules and work regardless of language variant.
+
+     ⚠ No two-handed sign support: MediaPipe is configured for single-hand
+       detection (num_hands=1). ISL uses two-hand gestures that require
+       combining both hand's keypoints.
+
+     ⚠ Dynamic/motion signs (like waving, circular movements) cannot be
+       detected with a single-frame static keypoint classifier. Temporal
+       modeling (LSTM, Transformer) would be needed.
+
+     ⚠ Lighting sensitivity: Extreme backlighting or very dark environments
+       can reduce MediaPipe detection accuracy.
+
+   FUTURE ROADMAP:
+     ✓ Two-hand gesture support (change num_hands=2, create 84-feature vector)
+     ✓ ISL Word-level model trained on INCLUDE dataset
+     ✓ Bi-directional communication (hearing person → STT → text to deaf user)
+     ✓ Hindi TTS voice support
+     ✓ Android APK via Capacitor + local FastAPI via Chaquopy or Python-for-Android
+     ✓ Transformer-based temporal sign model for dynamic gestures
+     ✓ User profile with custom vocabulary saving
+
+
+================================================================================
+   END OF DOCUMENT
+   SAMVAD AI — Project Technology Explanation v1.0
+================================================================================
